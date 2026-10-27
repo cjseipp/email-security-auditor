@@ -6,6 +6,10 @@ A Windows-based email security assessment tool designed to help small businesses
 
 The application performs read-only public DNS assessments of **SPF (Sender Policy Framework), DKIM (DomainKeys Identified Mail), and DMARC (Domain-based Message Authentication, Reporting, and Conformance)**.
 
+## Application Screenshot
+
+![Email Security Auditor desktop application](images/email-auditor-desktop.png)
+
 ## Download Email Security Auditor
 
 **Latest Windows release: v1.0.1**
