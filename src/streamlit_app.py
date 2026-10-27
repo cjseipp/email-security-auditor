@@ -4,8 +4,8 @@ from reporting import package
 st.set_page_config(page_title='Cyber Ready Email Auditor',page_icon='🛡️')
 st.title('Email Security Reassessment')
 st.caption('Read-only public DNS checks. No command-line skills required.')
-domain=st.text_input('Domain','buktech.com')
-selector=st.text_input('DKIM selector (optional)')
+domain=st.text_input('Domain',value='')
+selector=st.text_input('DKIM selector (optional)',value='default')
 if st.button('Run Assessment',type='primary'):
     try:
         with st.spinner('Checking public DNS...'):
