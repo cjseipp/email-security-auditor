@@ -56,6 +56,63 @@ Each completed assessment generates a ZIP package containing:
 | `05_Client_Instructions.pdf` | Guidance for interpreting the assessment |
 | `Technical_Evidence/` | Supporting DNS evidence |
 
+## Technical Architecture
+
+Email Security Auditor is a Python-based cybersecurity assessment application with two user interfaces that share a common assessment engine and reporting system.
+
+### Application Components
+
+| Component | Technology | Function |
+|---|---|---|
+| Desktop Interface | Python Tkinter | Provides a Windows graphical interface for entering domains, running assessments, and generating reports. |
+| Browser Interface | Streamlit | Provides a local web-based interface for performing the same assessments through a browser. |
+| Assessment Engine | Python, dnspython | Queries public DNS records to evaluate SPF, DKIM, and DMARC configurations. |
+| Reporting Engine | Python, ReportLab, HTML, Excel | Generates executive summaries, technical findings, remediation recommendations, and supporting evidence. |
+| Windows Distribution | PyInstaller | Packages the desktop application into a standalone Windows executable. |
+
+### Assessment Workflow
+
+1. **User Input:** The user enters a domain name and optionally specifies a DKIM selector.
+2. **DNS Discovery:** The assessment engine performs public DNS queries for SPF, DKIM, and DMARC records.
+3. **Security Analysis:** Retrieved DNS information is evaluated to identify authentication configurations and potential security weaknesses.
+4. **Findings and Recommendations:** The application prepares assessment results and suggested remediation actions.
+5. **Report Generation:** The reporting engine produces PDF, HTML, Excel, and supporting technical evidence files.
+6. **Client Package:** The generated files are collected into a downloadable ZIP archive.
+
+### Source Code Organization
+
+```text
+email-security-auditor/
+├── src/
+│   ├── audit_engine.py
+│   ├── desktop_app.py
+│   ├── streamlit_app.py
+│   └── reporting.py
+├── tests/
+│   └── test_audit.py
+├── scripts/
+│   ├── Install_Once.bat
+│   ├── Start_Desktop.bat
+│   ├── Start_Browser.bat
+│   └── Build_Windows_EXE.bat
+├── images/
+├── requirements.txt
+├── README.md
+└── LICENSE
+```
+
+### Security Design
+
+The application uses a read-only assessment approach:
+
+- Queries publicly available DNS information.
+- Does not require DNS administrator credentials.
+- Does not modify email authentication records.
+- Preserves supporting technical evidence for review.
+- Separates assessment processing from the desktop and browser interfaces.
+
+**Assessment limitation:** DNS configuration checks do not independently prove that email authentication succeeds for actual sent messages. Findings should be validated before implementing changes.
+
 ## Security and Limitations
 
 - The application performs read-only public DNS checks.
