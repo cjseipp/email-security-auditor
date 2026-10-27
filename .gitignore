@@ -218,3 +218,22 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Email Security Auditor — client data and local outputs
+client_packages/
+reports/
+assessment_output/
+
+# Local credentials and sensitive key material
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Local development and operating system files
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
