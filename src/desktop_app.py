@@ -8,8 +8,8 @@ root=tk.Tk();root.title('Cyber Ready Email Security Auditor');root.geometry('780
 frame=ttk.Frame(root,padding=20);frame.pack(fill='both',expand=True)
 ttk.Label(frame,text='Email Security Reassessment',font=('Segoe UI',18,'bold')).pack(anchor='w')
 ttk.Label(frame,text='Read-only public DNS checks. No PowerShell or Python commands needed.').pack(anchor='w',pady=(3,14))
-entry=ttk.Entry(frame,font=('Segoe UI',12));entry.insert(0,'buktech.com');entry.pack(fill='x')
-selector=ttk.Entry(frame);ttk.Label(frame,text='DKIM selector (optional, if provided by your email administrator)').pack(anchor='w',pady=(12,2));selector.pack(fill='x')
+entry=tk.Entry(frame,font=('Segoe UI',12));entry.pack(fill='x')
+selector=tk.Entry(frame);tk.Label(frame,text='DKIM selector (optional, if provided by your email administrator)').pack(anchor='w',pady=(12,2));selector.insert(0,'default');selector.pack(fill='x')
 status=tk.StringVar(value='Ready to assess.');ttk.Label(frame,textvariable=status).pack(anchor='w',pady=10)
 output=tk.Text(frame,wrap='word',height=17);output.pack(fill='both',expand=True)
 
