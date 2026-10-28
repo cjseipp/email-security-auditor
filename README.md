@@ -99,8 +99,92 @@ email-security-auditor/
 ├── requirements.txt
 ├── README.md
 └── LICENSE
-```
+## Running from Source — Installation and Launch Guide
 
+These instructions are intended for cybersecurity students, developers, and Cyber Ready Clinic participants who want to run the Python version of Email Security Auditor.
+
+**Nontechnical users should download `CyberReadyAudit.exe` from the GitHub Releases page instead.** The standalone executable does not require Python or any batch files.
+
+### Prerequisites
+
+- Windows computer
+- Python 3 installed, with the `py` launcher or `python` command available
+- Internet connection
+
+### Step 1 — Download the source code
+
+1. Click the green **Code** button on this repository.
+2. Select **Download ZIP**.
+3. Extract the downloaded ZIP into a folder.
+4. Open the extracted `email-security-auditor-main` folder.
+5. Open the `scripts` folder.
+
+### Step 2 — Install dependencies (first time only)
+
+Double-click:
+
+`Install_Once.bat`
+
+This script creates a Python virtual environment (`.venv`) and installs the dependencies listed in `requirements.txt`.
+
+Wait for the message **Setup complete** before proceeding.
+
+### Step 3 — Choose your application interface
+
+**Option A — Windows desktop application**
+
+Double-click:
+
+`Start_Desktop.bat`
+
+The Email Security Auditor desktop window will open.
+
+**Option B — Browser-based application**
+
+Double-click:
+
+`Start_Browser.bat`
+
+The Streamlit application will start on your computer. Open `http://localhost:8501` in your browser if it does not open automatically.
+
+You can use either interface; running both is not required.
+
+### Step 4 — Perform an assessment
+
+1. Enter the domain name.
+2. Confirm or enter the optional DKIM selector.
+3. Run the assessment.
+4. Review the SPF, DKIM, and DMARC findings.
+5. Locate the generated client report package.
+
+For source installations, reports are generated in the `client_packages` folder at the project root.
+
+### Step 5 — Build the Windows executable (optional)
+
+To create a standalone Windows executable, double-click:
+
+`Build_Windows_EXE.bat`
+
+Run `Install_Once.bat` first if setup has not already been completed.
+
+After a successful build, the executable is located at:
+
+`dist\CyberReadyAudit.exe`
+
+This build step is intended for developers preparing a Windows release. It is not necessary for ordinary assessments.
+
+### Batch File Reference
+
+| File | When to use |
+|---|---|
+| `Install_Once.bat` | First-time Python setup |
+| `Start_Desktop.bat` | Launch the desktop interface |
+| `Start_Browser.bat` | Launch the browser interface |
+| `Build_Windows_EXE.bat` | Build a standalone Windows executable |
+
+**Security note:** The application performs read-only public DNS queries. It does not change DNS records or require access to the organization's email administration system.
+
+```
 ### Security Design
 
 The application uses a read-only assessment approach:
