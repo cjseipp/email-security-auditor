@@ -69,6 +69,7 @@ def package(result,root='client_packages'):
     folder.mkdir(exist_ok=True)
     raw, csv=save(result,folder/'Technical_Evidence')
     findings=result['findings'];domain=result['domain']
+    dmarc = dmarc_report_data(result)
     css='body{font:16px system-ui,Segoe UI,Arial;max-width:960px;margin:40px auto;padding:0 22px;color:#15243b;line-height:1.55}h1{color:#153d5b}article{border:1px solid #d6e1e8;border-radius:12px;padding:18px;margin:12px 0}.pill{display:inline-block;background:#eaf1f6;padding:3px 10px;border-radius:20px}small{color:#53657b}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccd8e1;padding:9px;text-align:left}'
     cards=''.join(f'<article><h3>{escape(x["control"])} <span class="pill">{escape(x["severity"])}</span></h3><p>{escape(x["observation"])}</p><p><b>Recommended action:</b> {escape(x["recommendation"])}</p></article>' for x in findings)
     html=f'<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Email security assessment - {escape(domain)}</title><style>{css}</style><h1>Email Security Assessment</h1><p><b>Domain:</b> {escape(domain)}<br><b>Assessed (UTC):</b> {escape(result["scanned_utc"])}</p><p class="pill">Preliminary read-only assessment — not a certification</p><h2>What we checked</h2><p>Public DNS records for email authentication and routing. This does not test actual mailbox security or prove that email spoofing was blocked.</p><h2>Findings and next steps</h2>{cards}<h2>Who should act?</h2><p>Your designated IT provider or authorized DNS/email administrator should validate sending services, approve and implement any changes, and verify mail delivery.</p><h2>Limits</h2><p>{escape(result["disclaimer"])}</p><small>Cyber Ready Clinic capstone demonstration. Review findings with a qualified administrator before changing production email settings.</small></html>'
@@ -93,12 +94,36 @@ def package(result,root='client_packages'):
     sheet.title='Findings'
     rows=[['Control','Severity','Observation','Recommendation']]+[[x[k] for k in ('control','severity','observation','recommendation')] for x in findings]
     for row in rows: sheet.append(row)
+        
+    dm_sheet = wb.create_sheet('DMARC Analysis')
+    dm_sheet.append(['Setting', 'Observed value'])
+
+    dm_sheet.append(['Domain', domain])
+    dm_sheet.append(['DNS lookup status', dmarc['status']])
+    dm_sheet.append(['Recognized DMARC records', dmarc['record_count']])
+
+    for record in dmarc['raw_records']:
+        dm_sheet.append(['Raw TXT evidence', record])
+
+    for key, value in dmarc['settings'].items():
+        dm_sheet.append([key.upper(), value])
+
+    dm_sheet.append(['Finding severity', dmarc['severity']])
+    dm_sheet.append(['Observation', dmarc['observation']])
+    dm_sheet.append(['Recommended action', dmarc['recommendation']])
+
     rawsheet=wb.create_sheet('Raw DNS')
     rawsheet.append(['Type','Lookup status','Record value'])
     for typ,v in result['raw_evidence'].items():
         for item in v['values'] or ['(no records returned)']:
             rawsheet.append([typ,v['status'],item])
-    for ws,widths in [(sheet,[18,16,72,72]),(rawsheet,[18,22,95])]:
+    
+    for ws,widths in [
+        (sheet,[18,16,72,72]),
+        (rawsheet,[18,22,95]),
+        (dm_sheet,[26,100])
+    ]:
+
         ws.freeze_panes='A2'
         ws.auto_filter.ref=ws.dimensions
         for i,width in enumerate(widths,1):ws.column_dimensions[get_column_letter(i)].width=width
