@@ -196,8 +196,156 @@ def package(result,root='client_packages'):
             story.append(Paragraph(escape(body),styles['BodyText']))
             story.append(Spacer(1,10))
         doc.build(story)
-    sections=[('Assessment scope','Read-only public DNS analysis of email-related records. No mailbox access, test emails, or production changes.'),('Why it matters','Email authentication helps receivers distinguish authorized domain mail from some impersonation attempts. It does not eliminate business email compromise.'),('Findings', ' | '.join(x['control']+': '+x['severity']+' - '+x['observation'] for x in findings)),('Next step','Have the authorized email/DNS administrator validate senders and review technical evidence before changing policies.'),('Limitations',result['disclaimer'])]
-    pdf('01_Executive_Summary.pdf','Email Security - Executive Summary',sections)
+  
+    # Evidence-based Executive Summary for nonprofit leadership.
+    dmarc_policy = dmarc['settings'].get('p', 'Not specified')
+    dmarc_pct = dmarc['settings'].get('pct', '100 (default)')
+    dmarc_rua = dmarc['settings'].get('rua', 'Not configured')
+    dmarc_severity = dmarc['severity']
+
+    raw_dmarc = (
+        ' | '.join(dmarc['raw_records'])
+        if dmarc['raw_records']
+        else 'No DMARC TXT record returned.'
+    )
+
+    if dmarc['status'] != 'ok':
+        executive_risk = (
+            'The DMARC DNS lookup did not complete successfully. '
+            'The domain policy cannot be confirmed from this assessment. '
+            'Repeat the lookup before deciding whether configuration '
+            'changes are necessary.'
+        )
+    elif dmarc['record_count'] == 0:
+        executive_risk = (
+            'No recognized DMARC record was found in the returned DNS '
+            'evidence. The organization should have its email '
+            'administrator investigate and establish an appropriate '
+            'DMARC policy.'
+        )
+    elif dmarc['record_count'] > 1:
+        executive_risk = (
+            'Multiple DMARC records were detected. This configuration '
+            'can prevent reliable DMARC policy evaluation. The '
+            'administrator should consolidate the records.'
+        )
+    elif dmarc_severity == 'High':
+        executive_risk = (
+            'The DMARC configuration has a high-severity finding. '
+            'The published record may be invalid or contain conflicting '
+            'settings. The authorized email administrator should review '
+            'the raw DNS evidence and correct the configuration before '
+            'relying on the published policy.'
+        ) 
+    elif dmarc_policy == 'none':
+        executive_risk = (
+            'The domain publishes a monitoring-only DMARC policy '
+            '(p=none). This does not request quarantine or rejection '
+            'of messages that fail DMARC authentication. '
+            'The organization should review authorized sending '
+            'services and authentication reports before progressing '
+            'toward enforcement.'
+        )
+    elif dmarc_policy == 'quarantine':
+        executive_risk = (
+            'The domain requests quarantine of messages that fail '
+            'DMARC authentication. The administrator should verify '
+            'authorized senders, review aggregate reports, and '
+            'confirm the enforcement percentage before considering '
+            'a stronger policy.'
+        )
+    elif dmarc_policy == 'reject':
+        executive_risk = (
+            'The domain requests rejection of messages that fail '
+            'DMARC authentication. This is an enforcement policy, '
+            'but public DNS evidence alone cannot establish '
+            'whether all authorized messages authenticate correctly '
+            'or how receivers handle them.'
+        )
+    else:
+        executive_risk = (
+            'The published DMARC policy requires administrator '
+            'review. The recorded finding and technical evidence '
+            'should be examined before changing DNS settings.'
+        )
+
+    other_findings = [
+        item for item in findings
+        if item['control'] != 'DMARC'
+    ]
+
+    other_summary = (
+        ' | '.join(
+            item['control'] + ': ' +
+            item['severity'] + ' - ' +
+            item['observation']
+            for item in other_findings
+        )
+        if other_findings
+        else 'No additional findings were reported.'
+    )
+
+    sections = [
+        (
+            'Assessment Scope',
+            'Read-only examination of publicly available email-related '
+            'DNS records for ' + domain + '. No mailbox access, '
+            'test messages, or production configuration changes '
+            'were performed.'
+        ),
+        (
+            'Executive Risk Summary',
+            executive_risk
+        ),
+        (
+            'DMARC Finding Severity',
+            dmarc_severity
+        ),
+        (
+            'Observed DMARC Configuration',
+            'Published policy (p): ' + dmarc_policy +
+            ' | Enforcement percentage (pct): ' + dmarc_pct +
+            ' | Aggregate reporting (rua): ' + dmarc_rua +
+            ' | DNS lookup status: ' + dmarc['status']
+        ),
+        (
+            'Raw DMARC DNS Evidence',
+            raw_dmarc
+        ),
+        (
+            'Assessment Interpretation',
+            dmarc['observation'] or
+            'No DMARC interpretation was provided.'
+        ),
+        (
+            'Recommended Next Steps',
+            dmarc['recommendation'] or
+            'Ask the authorized email administrator to review '
+            'the DNS evidence and determine appropriate next steps.'
+        ),
+        (
+            'Other Email Security Findings',
+            other_summary
+        ),
+        (
+            'Responsibility',
+            'The nonprofit executive director or designated owner '
+            'should review the findings with the authorized IT '
+            'provider or email administrator. Changes should be '
+            'approved and tested before deployment.'
+        ),
+        (
+            'Assessment Limitations',
+            result['disclaimer']
+        )
+    ]
+
+    pdf(
+        '01_Executive_Summary.pdf',
+        'Email Security - Executive Summary',
+        sections
+    )
+
     plan=[(x['control']+' - '+x['severity'],x['recommendation']) for x in findings]
     plan.extend([('Approval','Obtain written approval from the domain owner before modifying DNS or mail service settings.'),('Verification','Test authorized outbound messages and monitor DMARC aggregate reports before increasing enforcement.'),('Rollback','Document original DNS values and TTLs; prepare reversal steps before change windows.')])
     pdf('03_Remediation_Action_Plan.pdf','Email Security - Action Plan',plan)
