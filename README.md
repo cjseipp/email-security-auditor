@@ -12,19 +12,32 @@ The application performs read-only public DNS assessments of **SPF (Sender Polic
 
 ## Download Email Security Auditor
 
-**Latest Windows release: v1.0.1**
+**Latest Windows release: v1.0.2**
 
-[**Download CyberReadyAudit.exe — Windows Application**](https://github.com/cjseipp/email-security-auditor/releases/download/v1.0.1/CyberReadyAudit.exe)
+[**Download CyberReadyAudit.exe – Windows Application**](https://github.com/cjseipp/email-security-auditor/releases/download/v1.0.2/CyberReadyAudit.exe)
 
 The Windows executable does not require a separate Python installation.
 
 For earlier versions, visit the [GitHub Releases page](https://github.com/cjseipp/email-security-auditor/releases).
+
+## What's New in v1.0.2
+
+This release improves the accuracy and usefulness of email security assessments for nonprofit organizations and small businesses.
+
+- **Evidence-based DMARC analysis:** Distinguishes DNS settings actually published by the domain owner from protocol defaults.
+- **Accurate DNS interpretation:** Differentiates missing DMARC records, NXDOMAIN responses, and DNS lookup failures.
+- **Improved Executive Summary:** Presents security risks, observed evidence, and recommended actions in a concise format for organizational leadership.
+- **Enhanced Remediation Action Plan:** Provides implementation preparation, verification, rollback procedures, and change ownership.
+- **Expanded reporting:** Includes DMARC configuration analysis across PDF, HTML, and Excel reports.
+- **Verified Windows application:** Passed 25 automated tests and was successfully tested on two Windows 11 computers.
 
 ## Installation and Use
 
 1. Download `CyberReadyAudit.exe` from the link above.
 2. Save the executable to a folder on your Windows computer.
 3. Double-click `CyberReadyAudit.exe` to launch the application.
+   - Windows SmartScreen may display a warning because the application is not digitally signed.
+   - If you downloaded the executable from this official GitHub release and trust the file, select **More info**, then **Run anyway**, if those options are available.
 4. Enter the domain you want to assess.
 5. Confirm, change, or clear the optional DKIM selector (initially `default`).
 6. Click **Run Assessment and Create Client Package**.
@@ -99,6 +112,7 @@ email-security-auditor/
 ├── requirements.txt
 ├── README.md
 └── LICENSE
+```
 ## Running from Source — Installation and Launch Guide
 
 These instructions are intended for cybersecurity students, developers, and Cyber Ready Clinic participants who want to run the Python version of Email Security Auditor.
@@ -184,7 +198,6 @@ This build step is intended for developers preparing a Windows release. It is no
 
 **Security note:** The application performs read-only public DNS queries. It does not change DNS records or require access to the organization's email administration system.
 
-```
 ### Security Design
 
 The application uses a read-only assessment approach:
