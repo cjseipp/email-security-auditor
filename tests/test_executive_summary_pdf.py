@@ -79,7 +79,8 @@ class ExecutiveSummaryPDFTests(unittest.TestCase):
             'Publish a monitored DMARC policy.', status='no_answer'
         )
         self.assertIn('No DMARC TXT record returned.', content)
-        self.assertIn('DNS lookup did not complete successfully', content)
+        self.assertIn('No recognized DMARC record was found', content)
+        self.assertIn('DNS lookup status: no_answer', content)
         self.assertIn('Publish a monitored DMARC policy.', content)
 
     def test_high_severity_does_not_claim_valid_enforcement(self):
