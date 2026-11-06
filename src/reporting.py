@@ -9,6 +9,59 @@ from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
 import zipfile, json
 
+def dmarc_report_data(result):
+    """Prepare DMARC evidence for reporting without changing audit results."""
+    import re
+    from audit_engine import txt_strings
+
+    response = result.get('raw_evidence', {}).get('DMARC', {})
+    status = response.get('status', 'not checked')
+    values = txt_strings(response.get('values', []))
+
+    records = [
+        value for value in values
+        if re.match(r'^\s*v\s*=\s*DMARC1(?:\s*;|\s*$)', value, re.I)
+    ]
+
+    tags = {}
+    if len(records) == 1:
+        for part in records[0].split(';'):
+            if '=' in part:
+                key, value = part.split('=', 1)
+                tags[key.strip().lower()] = value.strip()
+
+    defaults = {
+        'p': 'Not specified',
+        'sp': tags.get('p', 'Not specified') + ' (inherited)',
+        'adkim': 'r (relaxed, default)',
+        'aspf': 'r (relaxed, default)',
+        'pct': '100 (default)',
+        'rua': 'Not configured',
+        'ruf': 'Not configured',
+        'fo': '0 (default)',
+    }
+
+    settings = {
+        key: tags.get(key, default)
+        for key, default in defaults.items()
+    }
+
+    finding = next(
+        (item for item in result.get('findings', [])
+         if item.get('control') == 'DMARC'),
+        {}
+    )
+
+    return {
+        'status': status,
+        'raw_records': values,
+        'record_count': len(records),
+        'settings': settings,
+        'severity': finding.get('severity', 'Unknown'),
+        'observation': finding.get('observation', ''),
+        'recommendation': finding.get('recommendation', ''),
+    }
+
 def package(result,root='client_packages'):
     from audit_engine import save
     root=Path(root);root.mkdir(exist_ok=True,parents=True)
