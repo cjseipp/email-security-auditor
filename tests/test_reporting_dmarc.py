@@ -79,7 +79,7 @@ class DMARCReportingTests(unittest.TestCase):
 
                 self.assertEqual(data["Raw TXT evidence"], record)
                 self.assertEqual(data["P"], "none (published)")
-                self.assertEqual(data["PCT"], "50")
+                self.assertEqual(data["PCT"], "50 (published)")
                 self.assertEqual(data["ADKIM"], "s")
                 self.assertEqual(data["ASPF"], "r")
                 self.assertEqual(
