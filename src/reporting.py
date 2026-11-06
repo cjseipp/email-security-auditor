@@ -1,6 +1,6 @@
 from pathlib import Path
 from html import escape
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, KeepTogether
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, KeepTogether, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER
@@ -10,53 +10,72 @@ from openpyxl.utils import get_column_letter
 import zipfile, json
 
 def dmarc_report_data(result):
-    """Prepare DMARC evidence for reporting without changing audit results."""
+    """Separate observed DMARC DNS tags from protocol-derived defaults.
+
+    Do not infer policy settings when DNS lookup fails, when no record is
+    found, or when a single usable DMARC policy cannot be identified.
+    """
     import re
     from audit_engine import txt_strings
 
     response = result.get('raw_evidence', {}).get('DMARC', {})
-    status = response.get('status', 'not checked')
+    status = str(response.get('status', 'not checked'))
     values = txt_strings(response.get('values', []))
-
     records = [
         value for value in values
         if re.match(r'^\s*v\s*=\s*DMARC1(?:\s*;|\s*$)', value, re.I)
     ]
 
     tags = {}
-    if len(records) == 1:
+    if status.lower() == 'ok' and len(records) == 1:
         for part in records[0].split(';'):
             if '=' in part:
                 key, value = part.split('=', 1)
                 tags[key.strip().lower()] = value.strip()
 
-    defaults = {
-        'p': 'Not specified',
-        'sp': tags.get('p', 'Not specified') + ' (inherited)',
-        'adkim': 'r (relaxed, default)',
-        'aspf': 'r (relaxed, default)',
-        'pct': '100 (default)',
-        'rua': 'Not configured',
-        'ruf': 'Not configured',
-        'fo': '0 (default)',
-    }
-
-    settings = {
-        key: tags.get(key, default)
-        for key, default in defaults.items()
-    }
+    # A record must have exactly one recognized policy with a valid p tag
+    # before interpreting omitted optional tags as protocol defaults.
+    usable = (
+        status.lower() == 'ok'
+        and len(records) == 1
+        and tags.get('p', '').lower() in ('none', 'quarantine', 'reject')
+    )
+    keys = ('p', 'sp', 'adkim', 'aspf', 'pct', 'rua', 'ruf', 'fo')
+    if usable:
+        defaults = {
+            'p': 'Not specified (required tag)',
+            'sp': tags['p'] + ' (inherited default; not published)',
+            'adkim': 'r (relaxed; protocol default, not published)',
+            'aspf': 'r (relaxed; protocol default, not published)',
+            'pct': '100 (protocol default; not published)',
+            'rua': 'Not specified in record',
+            'ruf': 'Not specified in record',
+            'fo': '0 (protocol default; not published)',
+        }
+        settings = {
+            key: tags[key] + ' (published)' if key in tags else defaults[key]
+            for key in keys
+        }
+    else:
+        reason = (
+            'Unable to determine (DNS lookup unsuccessful)'
+            if status.lower() not in ('ok', 'nxdomain', 'noanswer', 'no_answer')
+            else 'Not observed (no usable DMARC record retrieved)'
+        )
+        settings = {key: reason for key in keys}
 
     finding = next(
         (item for item in result.get('findings', [])
          if item.get('control') == 'DMARC'),
         {}
     )
-
     return {
         'status': status,
+        'lookup_name': '_dmarc.' + result.get('domain', '').rstrip('.'),
         'raw_records': values,
         'record_count': len(records),
         'settings': settings,
+        'usable_record': usable,
         'severity': finding.get('severity', 'Unknown'),
         'observation': finding.get('observation', ''),
         'recommendation': finding.get('recommendation', ''),
@@ -84,6 +103,7 @@ def package(result,root='client_packages'):
     # Build DMARC analysis from actual DNS evidence.
 
     dmarc_rows = [
+        ('DNS hostname queried', dmarc['lookup_name']),
         ('DNS lookup status', dmarc['status']),
         ('Recognized DMARC records', str(dmarc['record_count']))
     ]
@@ -169,7 +189,7 @@ def package(result,root='client_packages'):
         )
     )
 
-    def pdf(filename, title, sections):
+    def pdf(filename, title, sections, compact=False, page_break_before=None):
         doc = SimpleDocTemplate(
             str(folder/filename),
             pagesize=(612, 792),
@@ -179,28 +199,54 @@ def package(result,root='client_packages'):
             bottomMargin=46
         )
 
+        # Executive Summary uses a tighter, readable one-page layout.
+        # Other PDFs retain their original styles and spacing.
+        if compact:
+            heading_style = ParagraphStyle(
+                'ExecutiveHeading', parent=styles['Heading2'],
+                fontSize=10.5, leading=13, spaceBefore=3, spaceAfter=2,
+                keepWithNext=True
+            )
+            body_style = ParagraphStyle(
+                'ExecutiveBody', parent=styles['BodyText'],
+                fontSize=9, leading=12
+            )
+            section_gap = 5
+            title_gap = 5
+        else:
+            heading_style = styles['Heading2']
+            body_style = styles['BodyText']
+            section_gap = 10
+            title_gap = 12
+
         story = [
             Paragraph(title, styles['Title']),
-            Spacer(1, 12),
+            Spacer(1, title_gap),
             Paragraph(
                 'Domain: ' + escape(domain) +
                 ' | UTC: ' + escape(result['scanned_utc']),
                 styles['NoteSmall']
             ),
-            Spacer(1, 12)
+            Spacer(1, title_gap)
         ]
 
         for heading, body in sections:
-
-            story.append(Paragraph(escape(heading),styles['Heading2']))
-            story.append(Paragraph(escape(body),styles['BodyText']))
-            story.append(Spacer(1,10))
+            if page_break_before == heading:
+                story.append(PageBreak())
+                story.append(Paragraph(
+                    'Remediation Action Plan - Implementation and Verification',
+                    styles['Heading2']
+                ))
+                story.append(Spacer(1, 10))
+            story.append(Paragraph(escape(heading), heading_style))
+            story.append(Paragraph(escape(body), body_style))
+            story.append(Spacer(1, section_gap))
         doc.build(story)
   
     # Evidence-based Executive Summary for nonprofit leadership.
-    dmarc_policy = dmarc['settings'].get('p', 'Not specified')
-    dmarc_pct = dmarc['settings'].get('pct', '100 (default)')
-    dmarc_rua = dmarc['settings'].get('rua', 'Not configured')
+    dmarc_policy = dmarc['settings'].get('p', 'Not observed')
+    dmarc_pct = dmarc['settings'].get('pct', 'Not observed')
+    dmarc_rua = dmarc['settings'].get('rua', 'Not observed')
     dmarc_severity = dmarc['severity']
 
     raw_dmarc = (
@@ -209,12 +255,23 @@ def package(result,root='client_packages'):
         else 'No DMARC TXT record returned.'
     )
 
-    if dmarc['status'] != 'ok':
+    if dmarc['status'].lower() == 'nxdomain':
         executive_risk = (
-            'The DMARC DNS lookup did not complete successfully. '
-            'The domain policy cannot be confirmed from this assessment. '
-            'Repeat the lookup before deciding whether configuration '
-            'changes are necessary.'
+            'The DNS resolver returned NXDOMAIN for ' +
+            dmarc['lookup_name'] + '. This is a valid negative DNS '
+            'response indicating that the queried name was reported '
+            'as nonexistent; it is not a timeout or connection failure. '
+            'No published DMARC policy could be confirmed. Ask the '
+            'authorized DNS administrator to check authoritative DNS '
+            'and verify whether a DMARC record should be published.'
+        )
+    elif dmarc['status'].lower() not in ('ok', 'noanswer', 'no_answer'):
+        executive_risk = (
+            'The DMARC DNS lookup did not return a usable response '
+            '(status: ' + dmarc['status'] + '). The domain policy '
+            'cannot be confirmed from this assessment. Investigate '
+            'the DNS lookup issue and repeat the assessment before '
+            'deciding whether configuration changes are necessary.'
         )
     elif dmarc['record_count'] == 0:
         executive_risk = (
@@ -237,7 +294,7 @@ def package(result,root='client_packages'):
             'the raw DNS evidence and correct the configuration before '
             'relying on the published policy.'
         ) 
-    elif dmarc_policy == 'none':
+    elif dmarc['usable_record'] and dmarc_policy.startswith('none'):
         executive_risk = (
             'The domain publishes a monitoring-only DMARC policy '
             '(p=none). This does not request quarantine or rejection '
@@ -246,7 +303,7 @@ def package(result,root='client_packages'):
             'services and authentication reports before progressing '
             'toward enforcement.'
         )
-    elif dmarc_policy == 'quarantine':
+    elif dmarc['usable_record'] and dmarc_policy.startswith('quarantine'):
         executive_risk = (
             'The domain requests quarantine of messages that fail '
             'DMARC authentication. The administrator should verify '
@@ -254,7 +311,7 @@ def package(result,root='client_packages'):
             'confirm the enforcement percentage before considering '
             'a stronger policy.'
         )
-    elif dmarc_policy == 'reject':
+    elif dmarc['usable_record'] and dmarc_policy.startswith('reject'):
         executive_risk = (
             'The domain requests rejection of messages that fail '
             'DMARC authentication. This is an enforcement policy, '
@@ -306,6 +363,7 @@ def package(result,root='client_packages'):
             'Published policy (p): ' + dmarc_policy +
             ' | Enforcement percentage (pct): ' + dmarc_pct +
             ' | Aggregate reporting (rua): ' + dmarc_rua +
+            ' | DNS hostname: ' + dmarc['lookup_name'] +
             ' | DNS lookup status: ' + dmarc['status']
         ),
         (
@@ -343,7 +401,8 @@ def package(result,root='client_packages'):
     pdf(
         '01_Executive_Summary.pdf',
         'Email Security - Executive Summary',
-        sections
+        sections,
+        compact=True
     )
 
     
@@ -356,7 +415,8 @@ def package(result,root='client_packages'):
         ),
         (
             '1. Observed DMARC DNS Evidence',
-            'Lookup status: ' + str(dmarc['status']) +
+            'DNS hostname: ' + dmarc['lookup_name'] +
+            ' | Lookup status: ' + str(dmarc['status']) +
             ' | Recognized records: ' + str(dmarc['record_count']) +
             ' | Raw TXT evidence: ' + raw_dmarc
         ),
@@ -430,7 +490,8 @@ def package(result,root='client_packages'):
     pdf(
         '03_Remediation_Action_Plan.pdf',
         'Email Security - Remediation Action Plan',
-        plan
+        plan,
+        page_break_before='6. Implementation Preparation'
     )
 
     pdf('05_Client_Instructions.pdf','How to Use Your Assessment',[('Open your dashboard','Double-click 02_Email_Security_Dashboard.html in File Explorer; it opens in Edge or Chrome. It is a saved report, not a live scan.'),('Read the summary','Open 01_Executive_Summary.pdf for the plain-language overview.'),('Who fixes problems?','Share 03_Remediation_Action_Plan.pdf and 04_Technical_Findings.xlsx with your IT provider. Do not change DNS records without authorization.'),('Reassess','Run the separate CyberReadyAudit.exe application if provided, click Run Assessment, and compare results. It needs internet access for public DNS lookups.'),('Privacy','Reports can reveal domain infrastructure. Share only with appropriate stakeholders.')])
@@ -444,6 +505,7 @@ def package(result,root='client_packages'):
     dm_sheet.append(['Setting', 'Observed value'])
 
     dm_sheet.append(['Domain', domain])
+    dm_sheet.append(['DNS hostname queried', dmarc['lookup_name']])
     dm_sheet.append(['DNS lookup status', dmarc['status']])
     dm_sheet.append(['Recognized DMARC records', dmarc['record_count']])
 
