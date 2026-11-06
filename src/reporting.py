@@ -346,9 +346,93 @@ def package(result,root='client_packages'):
         sections
     )
 
-    plan=[(x['control']+' - '+x['severity'],x['recommendation']) for x in findings]
-    plan.extend([('Approval','Obtain written approval from the domain owner before modifying DNS or mail service settings.'),('Verification','Test authorized outbound messages and monitor DMARC aggregate reports before increasing enforcement.'),('Rollback','Document original DNS values and TTLs; prepare reversal steps before change windows.')])
-    pdf('03_Remediation_Action_Plan.pdf','Email Security - Action Plan',plan)
+    
+    # Evidence-based remediation action plan.
+    plan = [
+        (
+            'Assessment Target',
+            'Domain: ' + domain +
+            ' | Assessment UTC: ' + result['scanned_utc']
+        ),
+        (
+            '1. Observed DMARC DNS Evidence',
+            'Lookup status: ' + str(dmarc['status']) +
+            ' | Recognized records: ' + str(dmarc['record_count']) +
+            ' | Raw TXT evidence: ' + raw_dmarc
+        ),
+        (
+            '2. Parsed DMARC Configuration',
+            ' | '.join(
+                key.upper() + ': ' + str(value)
+                for key, value in dmarc['settings'].items()
+            )
+        ),
+        (
+            '3. Identified DMARC Finding',
+            'Severity: ' + dmarc['severity'] +
+            ' | Observation: ' +
+            (dmarc['observation'] or 'No observation provided.')
+        ),
+        (
+            '4. Risk Explanation',
+            executive_risk
+        ),
+        (
+            '5. Recommended DMARC Remediation',
+            dmarc['recommendation'] or
+            'Review the DNS evidence with the authorized email '
+            'administrator before deciding on changes.'
+        ),
+        (
+            '6. Implementation Preparation',
+            'Identify every legitimate email sending service. '
+            'Confirm SPF and DKIM authentication and alignment. '
+            'Review available DMARC aggregate reports. '
+            'Record existing DNS values and TTLs. Obtain approval '
+            'from the domain owner before modifying DNS.'
+        ),
+        (
+            '7. Verification Procedure',
+            'After an approved change, query the authoritative DNS '
+            'records and confirm the intended DMARC policy is '
+            'published. Send test messages through each authorized '
+            'email service. Verify SPF, DKIM, and DMARC results '
+            'in receiving message headers. Monitor aggregate '
+            'reports and investigate authentication failures.'
+        ),
+        (
+            '8. Rollback Procedure',
+            'Preserve the original DNS record and TTL. '
+            'If authorized mail delivery is disrupted, '
+            'follow the approved rollback procedure to restore '
+            'the previous known-working configuration. '
+            'Allow for DNS caching and verify recovery.'
+        )
+    ]
+
+    for item in findings:
+        if item.get('control') != 'DMARC':
+            plan.append((
+                item['control'] + ' - ' + item['severity'],
+                'Observed finding: ' + item['observation'] +
+                ' | Recommended action: ' + item['recommendation']
+            ))
+
+    plan.append((
+        '9. Change Ownership and Approval',
+        'The authorized DNS or email administrator should '
+        'implement approved changes. The nonprofit owner or '
+        'designated decision-maker should authorize the work. '
+        'Document the change, verification results, and '
+        'any rollback actions.'
+    ))
+
+    pdf(
+        '03_Remediation_Action_Plan.pdf',
+        'Email Security - Remediation Action Plan',
+        plan
+    )
+
     pdf('05_Client_Instructions.pdf','How to Use Your Assessment',[('Open your dashboard','Double-click 02_Email_Security_Dashboard.html in File Explorer; it opens in Edge or Chrome. It is a saved report, not a live scan.'),('Read the summary','Open 01_Executive_Summary.pdf for the plain-language overview.'),('Who fixes problems?','Share 03_Remediation_Action_Plan.pdf and 04_Technical_Findings.xlsx with your IT provider. Do not change DNS records without authorization.'),('Reassess','Run the separate CyberReadyAudit.exe application if provided, click Run Assessment, and compare results. It needs internet access for public DNS lookups.'),('Privacy','Reports can reveal domain infrastructure. Share only with appropriate stakeholders.')])
     wb=Workbook()
     sheet=wb.active
