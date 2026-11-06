@@ -99,7 +99,8 @@ class RemediationPlanPDFTests(unittest.TestCase):
         )
         self.assertIn('Recognized records: 0', content)
         self.assertIn('No DMARC TXT record returned.', content)
-        self.assertIn('DNS lookup did not complete successfully', content)
+        self.assertIn('No recognized DMARC record was found', content)
+        self.assertIn('Lookup status: no_answer', content)
         self.assertIn('Investigate DNS and publish a validated DMARC record.', content)
         self.assertNotIn('domain requests rejection', content)
 
