@@ -72,6 +72,90 @@ def package(result,root='client_packages'):
     dmarc = dmarc_report_data(result)
     css='body{font:16px system-ui,Segoe UI,Arial;max-width:960px;margin:40px auto;padding:0 22px;color:#15243b;line-height:1.55}h1{color:#153d5b}article{border:1px solid #d6e1e8;border-radius:12px;padding:18px;margin:12px 0}.pill{display:inline-block;background:#eaf1f6;padding:3px 10px;border-radius:20px}small{color:#53657b}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccd8e1;padding:9px;text-align:left}'
     cards=''.join(f'<article><h3>{escape(x["control"])} <span class="pill">{escape(x["severity"])}</span></h3><p>{escape(x["observation"])}</p><p><b>Recommended action:</b> {escape(x["recommendation"])}</p></article>' for x in findings)
+    
+    cards = ''.join(
+        f'<article><h3>{escape(x["control"])} '
+        f'<span class="pill">{escape(x["severity"])}</span></h3>'
+        f'<p>{escape(x["observation"])}</p>'
+        f'<p><b>Recommended action:</b> '
+        f'{escape(x["recommendation"])}</p></article>'
+        for x in findings
+    )
+
+    # Build DMARC analysis from actual DNS evidence.
+    dmarc = dmarc_report_data(result)
+
+    dmarc_rows = [
+        ('DNS lookup status', dmarc['status']),
+        ('Recognized DMARC records', str(dmarc['record_count']))
+    ]
+
+    for key, value in dmarc['settings'].items():
+        dmarc_rows.append((key.upper(), str(value)))
+
+    dmarc_table = ''.join(
+        '<tr><th scope="row">' + escape(label) +
+        '</th><td>' + escape(value) + '</td></tr>'
+        for label, value in dmarc_rows
+    )
+
+    raw_records = dmarc['raw_records']
+    if raw_records:
+        raw_html = ''.join(
+            '<p><code style="overflow-wrap:anywhere">' +
+            escape(record) + '</code></p>'
+            for record in raw_records
+        )
+    else:
+        raw_html = '<p>No TXT records returned.</p>'
+
+    dmarc_html = (
+        '<section>'
+        '<h2>DMARC Configuration Analysis</h2>'
+        '<p>Observed DNS evidence and interpreted policy settings.</p>'
+        '<h3>Raw DMARC TXT Evidence</h3>'
+        + raw_html +
+        '<h3>Parsed DMARC Settings</h3>'
+        '<table><tbody>' + dmarc_table + '</tbody></table>'
+        '<h3>Assessment</h3>'
+        '<p><b>Severity:</b> ' + escape(dmarc['severity']) + '</p>'
+        '<p><b>Observation:</b> ' +
+        escape(dmarc['observation']) + '</p>'
+        '<p><b>Recommended action:</b> ' +
+        escape(dmarc['recommendation']) + '</p>'
+        '</section>'
+    )
+
+    html = (
+        '<!doctype html><html lang="en"><head>'
+        '<meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        f'<title>Email security assessment - {escape(domain)}</title>'
+        f'<style>{css}</style></head><body>'
+        '<h1>Email Security Assessment</h1>'
+        f'<p><b>Domain:</b> {escape(domain)}<br>'
+        f'<b>Assessed (UTC):</b> {escape(result["scanned_utc"])}</p>'
+        '<p class="pill">Preliminary read-only assessment '
+        '- not a certification</p>'
+        '<h2>What we checked</h2>'
+        '<p>Public DNS records for email authentication and routing. '
+        'This does not test actual mailbox security or prove '
+        'that email spoofing was blocked.</p>'
+        '<h2>Findings and next steps</h2>'
+        + cards +
+        dmarc_html +
+        '<h2>Who should act?</h2>'
+        '<p>Your designated IT provider or authorized DNS/email '
+        'administrator should validate sending services, approve '
+        'and implement any changes, and verify mail delivery.</p>'
+        '<h2>Limits</h2>'
+        f'<p>{escape(result["disclaimer"])}</p>'
+        '<small>Cyber Ready Clinic capstone demonstration. '
+        'Review findings with a qualified administrator before '
+        'changing production email settings.</small>'
+        '</body></html>'
+    )
+
     html=f'<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Email security assessment - {escape(domain)}</title><style>{css}</style><h1>Email Security Assessment</h1><p><b>Domain:</b> {escape(domain)}<br><b>Assessed (UTC):</b> {escape(result["scanned_utc"])}</p><p class="pill">Preliminary read-only assessment — not a certification</p><h2>What we checked</h2><p>Public DNS records for email authentication and routing. This does not test actual mailbox security or prove that email spoofing was blocked.</p><h2>Findings and next steps</h2>{cards}<h2>Who should act?</h2><p>Your designated IT provider or authorized DNS/email administrator should validate sending services, approve and implement any changes, and verify mail delivery.</p><h2>Limits</h2><p>{escape(result["disclaimer"])}</p><small>Cyber Ready Clinic capstone demonstration. Review findings with a qualified administrator before changing production email settings.</small></html>'
     (folder/'02_Email_Security_Dashboard.html').write_text(html,encoding='utf-8')
     styles=getSampleStyleSheet();styles.add(ParagraphStyle(name='NoteSmall',parent=styles['BodyText'],fontSize=9,leading=13,spaceAfter=9))
