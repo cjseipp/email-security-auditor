@@ -80,11 +80,11 @@ class DMARCReportingTests(unittest.TestCase):
                 self.assertEqual(data["Raw TXT evidence"], record)
                 self.assertEqual(data["P"], "none (published)")
                 self.assertEqual(data["PCT"], "50 (published)")
-                self.assertEqual(data["ADKIM"], "s")
-                self.assertEqual(data["ASPF"], "r")
+                self.assertEqual(data["ADKIM"], "s (published)")
+                self.assertEqual(data["ASPF"], "r (published)")
                 self.assertEqual(
                     data["RUA"],
-                    "mailto:reports@example.org"
+                    "mailto:reports@example.org (published)"
                 )
 
                 self.assertEqual(
