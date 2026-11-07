@@ -2,7 +2,7 @@ import streamlit as st
 from audit_engine import audit
 from reporting import package
 st.set_page_config(page_title='Cyber Ready Email Auditor',page_icon='🛡️')
-st.title('Email Security Reassessment')
+st.title('Email Security Assessment')
 st.caption('Read-only public DNS checks. No command-line skills required.')
 domain=st.text_input('Domain',value='')
 selector=st.text_input('DKIM selector (optional)',value='default')
@@ -16,7 +16,7 @@ if st.button('Run Assessment',type='primary'):
             with st.expander(f'{f["control"]} — {f["severity"]}',expanded=True):
                 st.write(f['observation']);st.write('**Next step:**',f['recommendation'])
         with open(zipfile,'rb') as file:
-            st.download_button('Download Client Report Package',file.read(),file_name=zipfile.name,mime='application/zip')
+            st.download_button('Download Client Report Package',file.read(),file_name=zipfile.name,mime='application/zip', type='primary')
         with st.expander('Raw DNS evidence'):
             st.json(result['raw_evidence'])
     except Exception as e:st.error(str(e))
