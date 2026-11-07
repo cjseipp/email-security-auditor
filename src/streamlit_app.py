@@ -2,7 +2,7 @@ import streamlit as st
 from audit_engine import audit
 from reporting import package
 st.set_page_config(page_title='Cyber Ready Email Auditor',page_icon='🛡️')
-st.title('Email Security Reassessment')
+st.title('Email Security Assessment')
 st.caption('Read-only public DNS checks. No command-line skills required.')
 domain=st.text_input('Domain',value='')
 selector=st.text_input('DKIM selector (optional)',value='default')
