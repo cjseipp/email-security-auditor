@@ -16,7 +16,7 @@ if st.button('Run Assessment',type='primary'):
             with st.expander(f'{f["control"]} — {f["severity"]}',expanded=True):
                 st.write(f['observation']);st.write('**Next step:**',f['recommendation'])
         with open(zipfile,'rb') as file:
-            st.download_button('Download Client Report Package',file.read(),file_name=zipfile.name,mime='application/zip')
+            st.download_button('Download Client Report Package',file.read(),file_name=zipfile.name,mime='application/zip', type='primary')
         with st.expander('Raw DNS evidence'):
             st.json(result['raw_evidence'])
     except Exception as e:st.error(str(e))
